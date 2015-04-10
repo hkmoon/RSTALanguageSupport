@@ -77,7 +77,7 @@ class FieldCompletion extends AbstractJavaSourceCompletion
 
 	public static FieldCompletion createLengthCompletion(
 							CompletionProvider provider, final Type type) {
-		FieldCompletion fc = new FieldCompletion(provider, type.toString());
+		FieldCompletion fc = new FieldCompletion(provider, "length");
 		fc.data = new Data() {
 
 			public String getEnclosingClassName(boolean fullyQualified) {

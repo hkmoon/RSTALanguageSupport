@@ -55,7 +55,7 @@ import org.fife.ui.rsyntaxtextarea.Token;
 
 /**
  * Parses a Java AST for code completions.  It currently scans the following:
- * 
+ *
  * <ul>
  *    <li>Import statements
  *    <li>Method names
@@ -82,7 +82,7 @@ class SourceCompletionProvider extends DefaultCompletionProvider {
 
 	private static final String JAVA_LANG_PACKAGE			= "java.lang.*";
 	private static final String THIS						= "this";
-	
+
 	//Shorthand completions (templates and comments)
 	private ShorthandCompletionCache shorthandCache;
 	/**
@@ -246,7 +246,7 @@ class SourceCompletionProvider extends DefaultCompletionProvider {
 			set.addAll(shorthandCache.getShorthandCompletions());
 		}
 	}
-	
+
 	/**
 	 * Set template completion cache for source completion provider.
 	 *
@@ -649,7 +649,7 @@ public SourceLocation  getSourceLocForClass(String className) {
 	/**
 	 * Loads completions based on the current caret location in the source.  In
 	 * other words:
-	 * 
+	 *
 	 * <ul>
 	 *   <li>If the caret is anywhere in a class, the names of all methods and
 	 *       fields in the class are loaded.  Methods and fields in super
@@ -707,7 +707,7 @@ public SourceLocation  getSourceLocForClass(String className) {
 	 * This method is called when the caret is found to be in a specific type
 	 * declaration.  This method checks if the caret is in a child type
 	 * declaration first, then adds completions for itself next.
-	 * 
+	 *
 	 * <ul>
 	 *   <li>If the caret is anywhere in a class, the names of all methods and
 	 *       fields in the class are loaded.  Methods and fields in super
@@ -922,11 +922,74 @@ public SourceLocation  getSourceLocForClass(String className) {
 		if (!matched) {
 			List<ImportDeclaration> imports = cu.getImports();
 			List<ClassFile> matches = jarManager.getClassesWithUnqualifiedName(
-															prefix, imports);
+					prefix, imports);
+
+
+
+			//			{
+			//				Type type = var.getType();
+			//				String pkg = cu.getPackageName();
+			//
+			//				if (type.isArray()) {
+			//					ClassFile cf = getClassFileFor(cu, "java.lang.Object");
+			//					addCompletionsForExtendedClass(retVal, cu, cf, pkg, null);
+			//					FieldCompletion fc = FieldCompletion.
+			//							createLengthCompletion(this, type);
+			//					retVal.add(fc);
+			//				}
+			//
+			//				else if (!type.isBasicType()) {
+			//					String typeStr = type.getName(true, false);
+			//					ClassFile cf = getClassFileFor(cu, typeStr);
+			//					if (cf!=null) {
+			//						Map<String, String> typeParamMap = createTypeParamMap(type, cf);
+			//						addCompletionsForExtendedClass(retVal, cu, cf, pkg, typeParamMap);
+			//					}
+			//				}
+			//
+			//			}
+
+			// TODO: Method annotation should be handled
 			if (matches!=null) {
 				for (int i=0; i<matches.size(); i++) {
 					ClassFile cf = matches.get(i);
 					addCompletionsForStaticMembers(retVal, cu, cf, pkg);
+				}
+			}
+			else
+			{
+				int lastDot = prefix.lastIndexOf('.');
+				boolean qualified = lastDot>-1;
+				String tmp = qualified ? prefix.substring(0, lastDot) : null;
+				matches = jarManager.getClassesWithUnqualifiedName(
+						tmp, imports);
+				if (matches!=null) {
+
+					ClassFile cf = matches.get(0);
+					String[] tokens = prefix.split( "\\." );
+					String typeStr = cf.getFieldInfoByName( tokens[1] ).getTypeString( true );
+
+					cf = getClassFileFor(cu, typeStr);
+					// Check us first, so if we override anything, we get the "newest"
+					// version.
+					int methodCount = cf.getMethodCount();
+					for (int i=0; i<methodCount; i++) {
+						MethodInfo info = cf.getMethodInfo(i);
+						// Don't show constructors
+						if (isAccessible(info, pkg) && !info.isConstructor()) {
+							MethodCompletion mc = new MethodCompletion(this, info);
+							retVal.add(mc);
+						}
+					}
+
+					int fieldCount = cf.getFieldCount();
+					for (int i=0; i<fieldCount; i++) {
+						FieldInfo info = cf.getFieldInfo(i);
+						if (isAccessible(info, pkg)) {
+							FieldCompletion fc = new FieldCompletion(this, info);
+							retVal.add(fc);
+						}
+					}
 				}
 			}
 		}
@@ -1061,7 +1124,7 @@ public SourceLocation  getSourceLocForClass(String className) {
 
 	/**
 	 * Sets the parent Java provider.
-	 * 
+	 *
 	 * @param javaProvider The parent completion provider.
 	 */
 	void setJavaProvider(JavaCompletionProvider javaProvider) {
